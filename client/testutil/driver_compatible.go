@@ -3,6 +3,7 @@ package testutil
 import (
 	"os/exec"
 	"runtime"
+	"sync"
 	"syscall"
 	"testing"
 )
@@ -38,13 +39,24 @@ func QemuCompatible(t *testing.T) {
 	}
 }
 
+var rktExists bool
+var rktOnce sync.Once
+
 func RktCompatible(t *testing.T) {
 	if runtime.GOOS == "windows" || syscall.Geteuid() != 0 {
-		t.Skip("Must be root on non-windows environments to run test")
+		t.Skip("Must be root on non-Windows environments to run test")
 	}
+
 	// else see if rkt exists
-	_, err := exec.Command("rkt", "version").CombinedOutput()
-	if err != nil {
+	rktOnce.Do(func() {
+		out, err := exec.Command("rkt", "version").CombinedOutput()
+		if err == nil {
+			t.Logf("found rkt version: %s", out)
+			rktExists = true
+		}
+	})
+
+	if !rktExists {
 		t.Skip("Must have rkt installed for rkt specific tests to run")
 	}
 }
